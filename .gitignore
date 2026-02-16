@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+assets/
 
 # Environment variables
 .env
@@ -48,3 +49,11 @@ supabase/.temp/
 
 # Lock files (keep only one - package-lock.json)
 bun.lockb
+
+# Sensitive scripts with hardcoded secrets
+generate-jwt.cjs
+reset-admin-password.sh
+create-super-admin.sh
+
+# Docker
+get-docker.sh

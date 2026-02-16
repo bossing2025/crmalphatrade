@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 
-const BASE_URL = "https://api.megatroncrm.online/functions/v1";
+const BASE_URL = "https://api.alphatradecrm.com/functions/v1";
 
 export default function ApiDocs() {
   const contentRef = useRef<HTMLDivElement>(null);
