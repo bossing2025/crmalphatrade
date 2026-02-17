@@ -355,7 +355,7 @@ export default function Monitoring() {
     queryKey: ['vps-health', lastRefresh],
     queryFn: async () => {
       try {
-        const response = await fetch('https://megatroncrm.online/proxy/health.php');
+        const response = await fetch('https://crm.alphatradecrm.com/proxy/health.php');
         if (!response.ok) throw new Error('VPS unreachable');
         return await response.json();
       } catch (error) {
@@ -376,7 +376,7 @@ export default function Monitoring() {
     queryKey: ['vps-version', lastRefresh],
     queryFn: async () => {
       try {
-        const response = await fetch('https://megatroncrm.online/proxy/version.php', {
+        const response = await fetch('https://crm.alphatradecrm.com/proxy/version.php', {
           cache: 'no-store',
         });
         if (!response.ok) throw new Error('Version endpoint unreachable');

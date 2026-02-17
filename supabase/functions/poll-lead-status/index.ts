@@ -109,7 +109,7 @@ function formatEnigmaDate(date: Date): string {
 }
 
 // VPS forwarder URL for IP whitelisting (uses main domain path)
-const FORWARDER_URL = 'https://megatroncrm.online/proxy/forward.php';
+const FORWARDER_URL = 'https://crm.alphatradecrm.com/proxy/forward.php';
 
 // Poll Enigma using their bulk leads API (routed through VPS forwarder)
 async function pollEnigmaLeads(

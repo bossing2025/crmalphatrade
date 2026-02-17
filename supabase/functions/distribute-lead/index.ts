@@ -164,7 +164,7 @@ function extractAutologinUrl(responseText: string): string | null {
 }
 
 // VPS forwarder URL - routes through static IP 63.250.32.170 (uses main domain path)
-const FORWARDER_URL = 'https://megatroncrm.online/proxy/forward.php';
+const FORWARDER_URL = 'https://crm.alphatradecrm.com/proxy/forward.php';
 
 // Helper to handle forwarder response with diagnostic fallback
 async function handleForwarderResponse(response: Response, advertiserName: string): Promise<string> {

@@ -64,7 +64,7 @@ interface Advertiser {
 }
 
 // VPS forwarder URL for IP whitelisting
-const FORWARDER_URL = 'https://megatroncrm.online/proxy/forward.php';
+const FORWARDER_URL = 'https://crm.alphatradecrm.com/proxy/forward.php';
 
 // ============================================================================
 // TRAFFIC SIMULATION ENGINE - Human-Like Traffic Generation
