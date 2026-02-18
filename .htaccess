@@ -1,10 +1,12 @@
+DirectoryIndex dist/index.html
+
 RewriteEngine On
 RewriteBase /
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.html [L]
+RewriteRule . /dist/index.html [L]
 
-<Files "index.html">
+<Files "dist/index.html">
   Header set Cache-Control "no-cache, no-store, must-revalidate"
   Header set Pragma "no-cache"
   Header set Expires "0"
