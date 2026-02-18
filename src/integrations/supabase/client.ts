@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://api.alp hatradecrm.com";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiYXVkIjoiYXV0aGVudGljYXRlZCIsImlhdCI6MTc3MTAwMDcwNSwiZXhwIjoyMDg2MzYwNzA1fQ.PsgCd_zNLIa-bst3Peu_dduPqvQLugDHWJRCv1l1WSk";
+const SUPABASE_URL = "https://api.alphatradecrm.com";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE3MDAwMDAwMDAsICJleHAiOiAyMDAwMDAwMDAwfQ.rkG-iSAaip-YmiKUm68aqSvJ-EL4rdW5j8PKM1fs84w";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

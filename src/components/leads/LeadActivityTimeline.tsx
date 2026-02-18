@@ -1,15 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { dbProxy } from "@/lib/dbProxy";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Send, 
-  RefreshCw, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
   DollarSign,
   AlertTriangle,
   History,
@@ -40,12 +39,13 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
     queryKey: ["lead-detail", leadId],
     queryFn: async () => {
       if (!leadId) return null;
-      return dbProxy<any>({
-        table: "leads",
-        operation: "select_single",
-        select: "*, affiliates(name)",
-        filters: { id: leadId },
-      });
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*, affiliates(name)")
+        .eq("id", leadId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
     enabled: !!leadId && open,
   });
@@ -54,12 +54,13 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
     queryKey: ["lead-status-history", leadId],
     queryFn: async () => {
       if (!leadId) return [];
-      return dbProxy<any[]>({
-        table: "lead_status_history",
-        operation: "select",
-        filters: { lead_id: leadId },
-        order: { column: "created_at", ascending: false },
-      }) ?? [];
+      const { data, error } = await supabase
+        .from("lead_status_history")
+        .select("*")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
     enabled: !!leadId && open,
   });
@@ -68,13 +69,13 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
     queryKey: ["lead-distributions", leadId],
     queryFn: async () => {
       if (!leadId) return [];
-      return dbProxy<any[]>({
-        table: "lead_distributions",
-        operation: "select",
-        select: "*, advertisers(name)",
-        filters: { lead_id: leadId },
-        order: { column: "created_at", ascending: false },
-      }) ?? [];
+      const { data, error } = await supabase
+        .from("lead_distributions")
+        .select("*, advertisers(name)")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
     enabled: !!leadId && open,
   });
@@ -83,12 +84,14 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
     queryKey: ["lead-callbacks", leadId],
     queryFn: async () => {
       if (!leadId) return [];
-      return dbProxy<any[]>({
-        table: "callback_logs",
-        operation: "select",
-        filters: { lead_id: leadId },
-        order: { column: "created_at", ascending: false },
-      }) ?? [];
+      const { data, error } = await supabase
+        .from("callback_logs")
+        .select("*")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false });
+      // Table may not exist yet — return empty array instead of failing
+      if (error) return [];
+      return data ?? [];
     },
     enabled: !!leadId && open,
   });
@@ -96,21 +99,21 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
   const timeline: TimelineEvent[] = [];
 
   statusHistory?.forEach((sh) => {
-    const fieldLabel = sh.field_name === 'status' ? 'Lead Status' 
+    const fieldLabel = sh.field_name === 'status' ? 'Lead Status'
       : sh.field_name === 'sale_status' ? 'Sale Status'
       : sh.field_name === 'is_ftd' ? 'FTD Status'
       : sh.field_name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-    
+
     timeline.push({
       id: `sh-${sh.id}`,
       type: "status_change",
       timestamp: sh.created_at,
       title: `${fieldLabel} Updated`,
       description: `${sh.old_value || "(none)"} → ${sh.new_value || "(none)"}`,
-      metadata: { 
-        source: sh.change_source, 
+      metadata: {
+        source: sh.change_source,
         reason: sh.change_reason,
-        changedBy: sh.changed_by 
+        changedBy: sh.changed_by
       },
       status: sh.field_name === 'status' || sh.field_name === 'sale_status' ? "success" : "info",
     });
@@ -122,7 +125,7 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
       type: "distribution",
       timestamp: dist.created_at,
       title: `Sent to ${(dist as any).advertisers?.name || "Unknown"}`,
-      description: dist.status === "sent" 
+      description: dist.status === "sent"
         ? `External ID: ${dist.external_lead_id || "-"}`
         : dist.response?.slice(0, 100),
       metadata: { autologin: dist.autologin_url },
@@ -136,7 +139,7 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
       type: "callback",
       timestamp: cb.created_at,
       title: `Callback: ${cb.callback_type}`,
-      description: cb.processing_status === "processed" 
+      description: cb.processing_status === "processed"
         ? `Changes: ${JSON.stringify(cb.changes_applied || {})}`
         : cb.processing_error,
       metadata: { advertiser: cb.advertiser_name },
@@ -243,14 +246,14 @@ export function LeadActivityTimeline({ leadId, open, onOpenChange }: LeadActivit
           ) : (
             <div className="relative">
               <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
-              
+
               <div className="space-y-4">
                 {timeline.map((event) => (
                   <div key={event.id} className="relative pl-10">
                     <div className="absolute left-2 top-1 bg-background p-1 rounded-full border">
                       {getIcon(event)}
                     </div>
-                    
+
                     <div className="bg-card border rounded-lg p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
