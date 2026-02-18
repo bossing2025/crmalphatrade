@@ -9,6 +9,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $targetUrl = $_SERVER['HTTP_X_TARGET_URL'] ?? '';
+// Debug: log all incoming headers
+error_log('forward.php headers: ' . json_encode(getallheaders()));
+
 if (empty($targetUrl)) {
     http_response_code(400);
     echo json_encode(['error' => 'Missing X-Target-URL header']);
@@ -21,7 +24,12 @@ $headers = [];
 
 foreach (getallheaders() as $key => $value) {
     $lower = strtolower($key);
-    if (in_array($lower, ['host', 'x-target-url', 'x-http-method', 'x-forwarded-for', 'x-forwarded-ua', 'x-forwarded-lang', 'x-forwarded-timezone', 'x-custom-referer', 'connection', 'accept-encoding'])) continue;
+    if (in_array($lower, ['host', 'x-target-url', 'x-http-method', 'x-forwarded-for', 'x-forwarded-ua', 'x-forwarded-lang', 'x-forwarded-timezone', 'x-forwarded-user-agent', 'x-forwarded-accept-language', 'x-forwarded-referer', 'x-custom-referer', 'connection', 'accept-encoding'])) continue;
+    // Translate X-Api-Key to Api-Key for target APIs that expect it without the X- prefix
+    if ($lower === 'x-api-key') {
+        $headers[] = "Api-Key: $value";
+        continue;
+    }
     $headers[] = "$key: $value";
 }
 
@@ -42,6 +50,7 @@ if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
     $headers[] = "X-Forwarded-For: " . $_SERVER['HTTP_X_FORWARDED_FOR'];
 }
 
+error_log('forward.php outgoing headers to ' . $targetUrl . ': ' . json_encode($headers));
 $ch = curl_init($targetUrl);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

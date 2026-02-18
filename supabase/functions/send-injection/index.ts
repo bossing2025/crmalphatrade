@@ -1284,7 +1284,25 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
     params.append('password', generatePassword());
     params.append('ip', lead.ip_address || generateGeoMatchedIP(lead.country_code));
     params.append('phone', localDigits);
+    // Determine offerWebsite/Referer
+    // Priority: config.offer_website (advertiser-level) > lead offer_name if it's a URL > lead offer_name as-is
+    const config = advertiser.config || {};
+    let offerWebsite = '';
+    const leadOfferName = lead.offer_name || '';
+    if (config.offer_website) {
+      // Advertiser has a configured offer website - use it for Referer
+      offerWebsite = String(config.offer_website);
+      if (!offerWebsite.startsWith('http') && offerWebsite.includes('.')) {
+        offerWebsite = `https://${offerWebsite}`;
+      }
+    } else if (leadOfferName.includes('.') && (leadOfferName.startsWith('http') || leadOfferName.startsWith('www'))) {
+      offerWebsite = leadOfferName.startsWith('http') ? leadOfferName : `https://${leadOfferName}`;
+    } else if (leadOfferName) {
+      offerWebsite = leadOfferName;
+    }
+
     if (lead.offer_name) params.append('offerName', lead.offer_name);
+    if (offerWebsite) params.append('offerWebsite', offerWebsite);
     if (lead.custom1) params.append('custom1', lead.custom1);
     if (lead.custom2) params.append('custom2', lead.custom2);
     if (lead.custom3) params.append('custom3', lead.custom3);
@@ -1293,20 +1311,32 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
     const clientIp = lead.ip_address || generateGeoMatchedIP(lead.country_code);
     console.log('Enigma injection payload:', params.toString());
     console.log('Enigma client IP for forwarding:', clientIp);
+    console.log('Enigma offer_website:', offerWebsite);
 
-    const response = await fetch(FORWARDER_URL, {
-      method: 'POST',
-      headers: {
+    const skipForwardedFor = config.skip_forwarded_for === true;
+    const fwdHeaders: Record<string, string> = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Target-Url': advertiser.url,
         'X-Api-Key': advertiser.api_key,
-        // Client IP for forwarding - RevDale checks TCP connection IP
-        'X-Forwarded-For': clientIp,
         // Traffic simulation headers
         'X-Forwarded-User-Agent': lead.user_agent || '',
         'X-Forwarded-Accept-Language': lead.browser_language || '',
         'X-Forwarded-Timezone': lead.timezone || '',
-      },
+      };
+    // Only forward client IP if not disabled (some APIs use X-Forwarded-For for IP whitelisting)
+    if (!skipForwardedFor) {
+      fwdHeaders['X-Forwarded-For'] = clientIp;
+    }
+    if (offerWebsite) {
+      fwdHeaders['X-Custom-Referer'] = offerWebsite;
+      fwdHeaders['Referer'] = offerWebsite;
+      fwdHeaders['X-Forwarded-Referer'] = offerWebsite;
+    }
+    console.log('Enigma forwarding headers:', JSON.stringify(fwdHeaders));
+
+    const response = await fetch(FORWARDER_URL, {
+      method: 'POST',
+      headers: fwdHeaders,
       body: params.toString(),
     });
 
@@ -1355,12 +1385,15 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        const response = await fetch(advertiser.url, {
-          method: 'POST',
-          headers: {
+        const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'Api-Key': advertiser.api_key,
-          },
+          };
+        if (lead.offer_name) headers['Referer'] = lead.offer_name;
+
+        const response = await fetch(advertiser.url, {
+          method: 'POST',
+          headers,
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
