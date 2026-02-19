@@ -1921,6 +1921,29 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
         .from('injections')
         .update({ sent_count: injection.sent_count + 1 })
         .eq('id', injection.id);
+
+      // Auto-visit autologin URL using same simulated IP/UA as registration
+      // so broker sees consistent IP for both signup and first login
+      if (autologinUrl) {
+        const autologinDelay = Math.floor(Math.random() * 8000) + 4000; // 4–12s random delay
+        console.log(`Autologin scheduled for ${lead.email} in ${Math.round(autologinDelay / 1000)}s: ${autologinUrl}`);
+        await new Promise(resolve => setTimeout(resolve, autologinDelay));
+        try {
+          await fetch(FORWARDER_URL, {
+            method: 'GET',
+            headers: {
+              'X-Target-Url': autologinUrl,
+              'X-Forwarded-For': effectiveLead.ip_address || '',
+              'X-Forwarded-User-Agent': effectiveLead.user_agent || '',
+              'X-Forwarded-Accept-Language': effectiveLead.browser_language || '',
+            },
+          });
+          console.log(`Autologin visited for ${lead.email}`);
+        } catch (err) {
+          console.warn(`Autologin visit failed for ${lead.email}:`, err);
+        }
+      }
+
     } else {
       // IMPORTANT: always store advertiser_id on failures too so the UI can show who rejected it
       await supabase
