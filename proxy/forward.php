@@ -24,7 +24,7 @@ $headers = [];
 
 foreach (getallheaders() as $key => $value) {
     $lower = strtolower($key);
-    if (in_array($lower, ['host', 'x-target-url', 'x-http-method', 'x-forwarded-for', 'x-forwarded-ua', 'x-forwarded-lang', 'x-forwarded-timezone', 'x-forwarded-user-agent', 'x-forwarded-accept-language', 'x-forwarded-referer', 'x-custom-referer', 'connection', 'accept-encoding'])) continue;
+    if (in_array($lower, ['host', 'x-target-url', 'x-http-method', 'x-forwarded-for', 'x-forwarded-ua', 'x-forwarded-lang', 'x-forwarded-timezone', 'x-forwarded-user-agent', 'x-forwarded-accept-language', 'x-forwarded-referer', 'x-custom-referer', 'user-agent', 'connection', 'accept-encoding'])) continue;
     // Translate X-Api-Key to Api-Key for target APIs that expect it without the X- prefix
     if ($lower === 'x-api-key') {
         $headers[] = "Api-Key: $value";
