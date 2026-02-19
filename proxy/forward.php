@@ -34,9 +34,11 @@ foreach (getallheaders() as $key => $value) {
 }
 
 // Traffic simulation headers
-if (!empty($_SERVER['HTTP_X_FORWARDED_UA'])) {
-    $headers[] = "User-Agent: " . $_SERVER['HTTP_X_FORWARDED_UA'];
-}
+// Support both X-Forwarded-User-Agent (full, used by send-injection) and X-Forwarded-UA (short, legacy)
+$customUserAgent = $_SERVER['HTTP_X_FORWARDED_USER_AGENT']
+    ?? $_SERVER['HTTP_X_FORWARDED_UA']
+    ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
 if (!empty($_SERVER['HTTP_X_FORWARDED_LANG'])) {
     $headers[] = "Accept-Language: " . $_SERVER['HTTP_X_FORWARDED_LANG'];
 }
@@ -54,6 +56,7 @@ error_log('forward.php outgoing headers to ' . $targetUrl . ': ' . json_encode($
 $ch = curl_init($targetUrl);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_USERAGENT, $customUserAgent);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
