@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 const SUPABASE_URL = "https://api.alphatradecrm.com";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE3MDAwMDAwMDAsICJleHAiOiAyMDAwMDAwMDAwfQ.rkG-iSAaip-YmiKUm68aqSvJ-EL4rdW5j8PKM1fs84w";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjIwMDAwMDAwMDB9.E9oZIRgodYlqt7eTdGZ7DP0zTBLSsi2w0JV_7jF0YBA";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
