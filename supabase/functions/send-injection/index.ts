@@ -1282,7 +1282,7 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
     params.append('firstName', lead.firstname);
     params.append('lastName', lead.lastname);
     params.append('password', generatePassword());
-    params.append('ip', lead.ip_address || generateGeoMatchedIP(lead.country_code));
+    params.append('ip', (lead as any).proxy_ip || lead.ip_address || generateGeoMatchedIP(lead.country_code));
     params.append('phone', localDigits);
     // Determine offerWebsite/Referer
     // Priority: config.offer_website (advertiser-level) > lead offer_name if it's a URL > lead offer_name as-is
@@ -1891,6 +1891,30 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
   // so both calls use the same MangoProxy IP — signup IP = click IP
   const proxySessionId = Math.random().toString(36).substring(2, 12);
   (effectiveLead as any).proxy_session_id = proxySessionId;
+
+  // Probe MangoProxy to discover the IP assigned to this session.
+  // We then use that IP as the `ip` body param in registration,
+  // so signup IP (body) = autologin click IP (same MangoProxy session TCP).
+  const countryCodeForProxy = (effectiveLead.country_code || '').toLowerCase();
+  if (countryCodeForProxy) {
+    try {
+      const probeRes = await fetch(FORWARDER_URL, {
+        method: 'GET',
+        headers: {
+          'X-Target-Url': 'http://ip-api.com/json',
+          'X-Proxy-Country': countryCodeForProxy,
+          'X-Proxy-Session': proxySessionId,
+        },
+      });
+      const probeJson = await probeRes.json();
+      if (probeJson.query) {
+        (effectiveLead as any).proxy_ip = probeJson.query;
+        console.log(`MangoProxy IP for session ${proxySessionId}: ${probeJson.query}`);
+      }
+    } catch (err) {
+      console.warn('MangoProxy IP probe failed, using lead IP as fallback:', err);
+    }
+  }
 
   // Send to advertiser
   const adapter = advertiserAdapters[advertiser.advertiser_type];
