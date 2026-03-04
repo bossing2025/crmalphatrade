@@ -1314,6 +1314,8 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
     console.log('Enigma offer_website:', offerWebsite);
 
     const skipForwardedFor = config.skip_forwarded_for === true;
+    const sessionId = (lead as any).proxy_session_id || '';
+    const countryCode = (lead.country_code || '').toLowerCase();
     const fwdHeaders: Record<string, string> = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Target-Url': advertiser.url,
@@ -1323,8 +1325,13 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
         'X-Forwarded-Accept-Language': lead.browser_language || '',
         'X-Forwarded-Timezone': lead.timezone || '',
       };
-    // Only forward client IP if not disabled (some APIs use X-Forwarded-For for IP whitelisting)
-    if (!skipForwardedFor) {
+    if (!skipForwardedFor && countryCode) {
+      // Route registration through MangoProxy with sticky session
+      // so signup IP (MangoProxy TCP) matches autologin click IP (same session)
+      fwdHeaders['X-Proxy-Country'] = countryCode;
+      if (sessionId) fwdHeaders['X-Proxy-Session'] = sessionId;
+    } else if (!skipForwardedFor) {
+      // Fallback: no country code, use simulated IP header
       fwdHeaders['X-Forwarded-For'] = clientIp;
     }
     if (offerWebsite) {
@@ -1880,6 +1887,11 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
 
   const effectiveLead = simulatedLead;
 
+  // Generate a sticky proxy session ID shared between registration and autologin
+  // so both calls use the same MangoProxy IP — signup IP = click IP
+  const proxySessionId = Math.random().toString(36).substring(2, 12);
+  (effectiveLead as any).proxy_session_id = proxySessionId;
+
   // Send to advertiser
   const adapter = advertiserAdapters[advertiser.advertiser_type];
   if (!adapter) {
@@ -1933,9 +1945,10 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
             method: 'GET',
             headers: {
               'X-Target-Url': autologinUrl,
-              'X-Forwarded-For': effectiveLead.ip_address || '',
               'X-Forwarded-User-Agent': effectiveLead.user_agent || '',
               'X-Forwarded-Accept-Language': effectiveLead.browser_language || '',
+              'X-Proxy-Country': (effectiveLead.country_code || '').toLowerCase(),
+              'X-Proxy-Session': proxySessionId,
             },
           });
           console.log(`Autologin visited for ${lead.email}`);
