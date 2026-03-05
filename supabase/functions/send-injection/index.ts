@@ -2526,7 +2526,21 @@ Deno.serve(async (req) => {
 
       // SIMPLIFIED FLOW: When injection.next_scheduled_at is due, immediately send ONE lead
       // No pre-scheduling of individual leads - just send and calculate next time
-      
+
+      // Atomically claim this injection by setting next_scheduled_at far ahead (temp lock).
+      // If two workers run simultaneously, only the first update will match the WHERE clause.
+      const tempLockTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const { data: claimedInjection } = await supabase
+        .from('injections')
+        .update({ next_scheduled_at: tempLockTime })
+        .eq('id', injection.id)
+        .lte('next_scheduled_at', thirtySecondsFromNow)
+        .select('id');
+      if (!claimedInjection?.length) {
+        console.log(`Injection ${injection.id}: Already claimed by another worker, skipping`);
+        continue;
+      }
+
       // Rotate through advertisers - pick one based on sent count
       const advertiserIndex = (injection.sent_count || 0) % advertiserIds.length;
       const selectedAdvertiserId = advertiserIds[advertiserIndex];
