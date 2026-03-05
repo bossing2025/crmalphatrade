@@ -2422,45 +2422,17 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       
-      let shouldProcessNow = true;
-      if (lastSentLead?.sent_at) {
-        const lastSentTime = new Date(lastSentLead.sent_at);
-        const elapsedSeconds = (Date.now() - lastSentTime.getTime()) / 1000;
-        
-        if (elapsedSeconds < minDelay) {
-          // Too soon - don't process now, just schedule
-          shouldProcessNow = false;
-          const waitSeconds = Math.ceil(minDelay - elapsedSeconds);
-          const nextTime = new Date(Date.now() + waitSeconds * 1000);
-          console.log(`Start action: Only ${Math.floor(elapsedSeconds)}s since last send, scheduling in ${waitSeconds}s (min_delay=${minDelay}s)`);
-          
-          await supabase
-            .from('injections')
-            .update({ next_scheduled_at: nextTime.toISOString() })
-            .eq('id', injection_id);
-            
-          await markNextLeadAsScheduled(supabase, injection_id, nextTime, selectedAdvertiserId);
-        }
-      }
-      
-      if (shouldProcessNow) {
-        // Process one lead immediately
-        const didProcess = await processNextLead(supabase, injection, advertiser);
-        
-        if (didProcess) {
-          // Calculate and set next send time
-          const nextTime = await calculateNextSendTimeAsync(supabase, injection);
-          console.log(`Injection started. Next send scheduled at: ${nextTime.toISOString()}`);
-          
-          await supabase
-            .from('injections')
-            .update({ next_scheduled_at: nextTime.toISOString() })
-            .eq('id', injection_id);
+      // Always schedule first lead with proper delay — never send immediately on start
+      // This ensures the countdown is respected before the first lead is sent
+      const firstNextTime = await calculateNextSendTimeAsync(supabase, injection);
+      console.log(`Injection started. First send scheduled at: ${firstNextTime.toISOString()}`);
 
-          // Mark one upcoming lead as scheduled for UI visibility
-          await markNextLeadAsScheduled(supabase, injection_id, nextTime, selectedAdvertiserId);
-        }
-      }
+      await supabase
+        .from('injections')
+        .update({ next_scheduled_at: firstNextTime.toISOString() })
+        .eq('id', injection_id);
+
+      await markNextLeadAsScheduled(supabase, injection_id, firstNextTime, selectedAdvertiserId);
 
       return new Response(JSON.stringify({ success: true, message: 'Injection started' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
