@@ -65,6 +65,8 @@ interface Advertiser {
 
 // VPS forwarder URL for IP whitelisting
 const FORWARDER_URL = 'https://crm.alphatradecrm.com/proxy/forward.php';
+// Headless browser service for autologin visits (real browser, follows JS redirects)
+const HEADLESS_URL = 'https://crm.alphatradecrm.com/proxy/headless.php';
 
 // ============================================================================
 // TRAFFIC SIMULATION ENGINE - Human-Like Traffic Generation
@@ -1965,17 +1967,18 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
         console.log(`Autologin scheduled for ${lead.email} in ${Math.round(autologinDelay / 1000)}s: ${autologinUrl}`);
         await new Promise(resolve => setTimeout(resolve, autologinDelay));
         try {
-          await fetch(FORWARDER_URL, {
-            method: 'GET',
-            headers: {
-              'X-Target-Url': autologinUrl,
-              'X-Forwarded-User-Agent': effectiveLead.user_agent || '',
-              'X-Forwarded-Accept-Language': effectiveLead.browser_language || '',
-              'X-Proxy-Country': (effectiveLead.country_code || '').toLowerCase(),
-              'X-Proxy-Session': proxySessionId,
-            },
+          await fetch(HEADLESS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: autologinUrl,
+              proxyCountry: (effectiveLead.country_code || '').toLowerCase(),
+              proxySession: proxySessionId,
+              userAgent: effectiveLead.user_agent || '',
+              language: effectiveLead.browser_language || '',
+            }),
           });
-          console.log(`Autologin visited for ${lead.email}`);
+          console.log(`Autologin visited (headless) for ${lead.email}`);
         } catch (err) {
           console.warn(`Autologin visit failed for ${lead.email}:`, err);
         }
