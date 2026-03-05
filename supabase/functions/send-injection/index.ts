@@ -881,9 +881,9 @@ function calculateSuperSmartDelay(injection: Injection, remainingLeads: number, 
   const ABSOLUTE_MIN_FLOOR = 30;   // Never go below 30 seconds
   const ABSOLUTE_MAX_CAP = 3600;   // Never exceed 1 hour
   
-  // Respect user settings but enforce absolute limits
+  // Smart Mode only respects the min delay (to prevent too-fast sends).
+  // The max delay is ignored — Smart Mode calculates its own range from the budget.
   const effectiveMinDelay = Math.max(ABSOLUTE_MIN_FLOOR, userMinDelay);
-  const effectiveMaxDelay = Math.min(ABSOLUTE_MAX_CAP, userMaxDelay);
 
   // Edge cases: fall back to user's min
   if (remainingSeconds <= 0 || remainingLeads <= 0) {
@@ -896,16 +896,16 @@ function calculateSuperSmartDelay(injection: Injection, remainingLeads: number, 
   // Flexibility score: wide variation early, tight later
   // When many leads remain, we can be more flexible; when few remain, tighten up
   const flexibilityScore = Math.min(1.0, remainingLeads / 20); // Max flexibility at 20+ leads
-  
+
   // Calculate multipliers based on flexibility
   // Early (high flexibility): 0.5x to 2.0x of ideal (within user bounds)
   // Late (low flexibility): 0.8x to 1.2x of ideal
   const minMultiplier = 0.5 + (1 - flexibilityScore) * 0.3; // 0.5 → 0.8
   const maxMultiplier = 2.0 - (1 - flexibilityScore) * 0.8; // 2.0 → 1.2
 
-  // Calculate range bounds - use ideal but clamp to user's min/max
+  // Calculate range bounds - Smart Mode uses the budget math, capped only by absolute 1-hour limit
   let rangeMin = Math.max(effectiveMinDelay, Math.floor(idealAvg * minMultiplier));
-  let rangeMax = Math.min(effectiveMaxDelay, Math.floor(idealAvg * maxMultiplier));
+  let rangeMax = Math.min(ABSOLUTE_MAX_CAP, Math.floor(idealAvg * maxMultiplier));
 
   // Safety: ensure rangeMax >= rangeMin
   if (rangeMax < rangeMin) {
@@ -967,10 +967,10 @@ function calculateSuperSmartDelay(injection: Injection, remainingLeads: number, 
   // 1-2 seconds apart (breaking the 30s floor). The jitter above provides
   // enough variation without violating the minimum delay constraint.
 
-  // Final clamp to respect user's configured bounds
-  delay = Math.max(effectiveMinDelay, Math.min(effectiveMaxDelay, delay));
+  // Final clamp: respect absolute limits only (Smart Mode ignores user max_delay_seconds)
+  delay = Math.max(effectiveMinDelay, Math.min(ABSOLUTE_MAX_CAP, delay));
 
-  console.log(`SuperSmart delay: budget=${remainingSeconds}s, leads=${remainingLeads}, ideal=${idealAvg}s, flex=${flexibilityScore.toFixed(2)}, zone=${zoneName}, range=[${rangeMin}s-${rangeMax}s], userBounds=[${userMinDelay}s-${userMaxDelay}s], chosen=${delay}s (${Math.floor(delay/60)}m ${delay%60}s)`);
+  console.log(`SuperSmart delay: budget=${remainingSeconds}s, leads=${remainingLeads}, ideal=${idealAvg}s, flex=${flexibilityScore.toFixed(2)}, zone=${zoneName}, range=[${rangeMin}s-${rangeMax}s], userMin=${userMinDelay}s, chosen=${delay}s (${Math.floor(delay/60)}m ${delay%60}s)`);
 
   return Math.floor(delay);
 }
