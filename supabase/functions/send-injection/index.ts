@@ -2513,78 +2513,87 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Rotate through advertisers - pick one based on sent count
-      const advertiserIndex = (injection.sent_count || 0) % advertiserIds.length;
-      const selectedAdvertiserId = advertiserIds[advertiserIndex];
+      try {
+        // Rotate through advertisers - pick one based on sent count
+        const advertiserIndex = (injection.sent_count || 0) % advertiserIds.length;
+        const selectedAdvertiserId = advertiserIds[advertiserIndex];
 
-      const { data: advertiser } = await supabase
-        .from('advertisers')
-        .select('*')
-        .eq('id', selectedAdvertiserId)
-        .single();
+        const { data: advertiser } = await supabase
+          .from('advertisers')
+          .select('*')
+          .eq('id', selectedAdvertiserId)
+          .single();
 
-      if (advertiser) {
-        const didProcess = await processNextLead(supabase, injection, advertiser);
-        if (didProcess) {
-          processed++;
-          injection.sent_count = (injection.sent_count || 0) + 1;
-        }
-      }
-
-      // Check if all GEO caps have been reached
-      let allCapsReached = false;
-      if (injection.geo_caps && Object.keys(injection.geo_caps).length > 0) {
-        allCapsReached = true;
-        for (const [countryCode, cap] of Object.entries(injection.geo_caps as Record<string, number>)) {
-          const { count: sentForGeo } = await supabase
-            .from('injection_leads')
-            .select('id', { count: 'exact', head: true })
-            .eq('injection_id', injection.id)
-            .eq('country_code', countryCode)
-            .eq('status', 'sent');
-          
-          if ((sentForGeo || 0) < cap) {
-            allCapsReached = false;
-            break;
+        if (advertiser) {
+          const didProcess = await processNextLead(supabase, injection, advertiser);
+          if (didProcess) {
+            processed++;
+            injection.sent_count = (injection.sent_count || 0) + 1;
           }
         }
-      }
 
-      // Check remaining leads
-      const { count: remainingCount } = await supabase
-        .from('injection_leads')
-        .select('id', { count: 'exact', head: true })
-        .eq('injection_id', injection.id)
-        .in('status', ['pending', 'scheduled', 'sending']);
+        // Check if all GEO caps have been reached
+        let allCapsReached = false;
+        if (injection.geo_caps && Object.keys(injection.geo_caps).length > 0) {
+          allCapsReached = true;
+          for (const [countryCode, cap] of Object.entries(injection.geo_caps as Record<string, number>)) {
+            const { count: sentForGeo } = await supabase
+              .from('injection_leads')
+              .select('id', { count: 'exact', head: true })
+              .eq('injection_id', injection.id)
+              .eq('country_code', countryCode)
+              .eq('status', 'sent');
 
-      // Complete if no remaining leads OR all GEO caps reached
-      if (remainingCount === 0 || allCapsReached) {
-        // Skip remaining leads if caps reached
-        if (allCapsReached && remainingCount && remainingCount > 0) {
-          await supabase
-            .from('injection_leads')
-            .update({ status: 'skipped', error_message: 'GEO cap target reached' })
-            .eq('injection_id', injection.id)
-            .in('status', ['pending', 'scheduled']);
+            if ((sentForGeo || 0) < cap) {
+              allCapsReached = false;
+              break;
+            }
+          }
         }
-        
-        await supabase
-          .from('injections')
-          .update({ status: 'completed', next_scheduled_at: null })
-          .eq('id', injection.id);
-      } else {
-        // Calculate next send time and update injection.next_scheduled_at
-        // This is the ONLY place where timing is calculated
-        const nextTime = await calculateNextSendTimeAsync(supabase, injection);
-        console.log(`Next send for injection ${injection.id} scheduled at: ${nextTime.toISOString()}`);
-        
-        await supabase
-          .from('injections')
-          .update({ next_scheduled_at: nextTime.toISOString() })
-          .eq('id', injection.id);
 
-        // Mark one upcoming lead as scheduled for UI visibility
-        await markNextLeadAsScheduled(supabase, injection.id, nextTime, selectedAdvertiserId);
+        // Check remaining leads
+        const { count: remainingCount } = await supabase
+          .from('injection_leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('injection_id', injection.id)
+          .in('status', ['pending', 'scheduled', 'sending']);
+
+        // Complete if no remaining leads OR all GEO caps reached
+        if (remainingCount === 0 || allCapsReached) {
+          // Skip remaining leads if caps reached
+          if (allCapsReached && remainingCount && remainingCount > 0) {
+            await supabase
+              .from('injection_leads')
+              .update({ status: 'skipped', error_message: 'GEO cap target reached' })
+              .eq('injection_id', injection.id)
+              .in('status', ['pending', 'scheduled']);
+          }
+
+          await supabase
+            .from('injections')
+            .update({ status: 'completed', next_scheduled_at: null })
+            .eq('id', injection.id);
+        } else {
+          // Calculate next send time and update injection.next_scheduled_at
+          // This is the ONLY place where timing is calculated
+          const nextTime = await calculateNextSendTimeAsync(supabase, injection);
+          console.log(`Next send for injection ${injection.id} scheduled at: ${nextTime.toISOString()}`);
+
+          await supabase
+            .from('injections')
+            .update({ next_scheduled_at: nextTime.toISOString() })
+            .eq('id', injection.id);
+
+          // Mark one upcoming lead as scheduled for UI visibility
+          await markNextLeadAsScheduled(supabase, injection.id, nextTime, selectedAdvertiserId);
+        }
+      } catch (lockErr) {
+        // Release the temp lock so the injection isn't stuck for 24 hours
+        console.error(`Injection ${injection.id}: Error during processing, releasing lock:`, lockErr);
+        await supabase
+          .from('injections')
+          .update({ next_scheduled_at: new Date().toISOString() })
+          .eq('id', injection.id);
       }
     }
 
