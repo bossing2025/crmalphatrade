@@ -1963,7 +1963,7 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
       // Auto-visit autologin URL using same simulated IP/UA as registration
       // so broker sees consistent IP for both signup and first login
       if (autologinUrl) {
-        const autologinDelay = Math.floor(Math.random() * 8000) + 4000; // 4–12s random delay
+        const autologinDelay = Math.floor(Math.random() * 2000) + 1000; // 1–3s random delay (reduce URL expiry risk)
         console.log(`Autologin scheduled for ${lead.email} in ${Math.round(autologinDelay / 1000)}s: ${autologinUrl}`);
         await new Promise(resolve => setTimeout(resolve, autologinDelay));
         try {
