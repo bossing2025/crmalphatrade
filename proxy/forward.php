@@ -71,9 +71,9 @@ if (!empty($proxyCountry)) {
         $proxyUsername = "xylvx6i2utq-zone-custom-region-{$proxyCountry}";
     }
     $proxyPassword = "pjuanujbxvy7g";
-    curl_setopt($ch, CURLOPT_PROXY, 'p2.mangoproxy.com');
+    curl_setopt($ch, CURLOPT_PROXY, 'p3.mangoproxy.com');
     curl_setopt($ch, CURLOPT_PROXYPORT, 2333);
-    curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME);
+    curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
     curl_setopt($ch, CURLOPT_PROXYUSERPWD, $proxyUsername . ':' . $proxyPassword);
     error_log('forward.php using residential proxy: ' . $proxyUsername);
 }

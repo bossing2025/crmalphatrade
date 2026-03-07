@@ -2,6 +2,9 @@
 // Proxy to local headless browser service (port 3100)
 // Accepts JSON POST with: url, proxyCountry, proxySession, userAgent, language
 
+// Keep running even if the edge function drops the HTTP connection (Deno wall clock limit)
+ignore_user_abort(true);
+
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input || empty($input['url'])) {
     http_response_code(400);

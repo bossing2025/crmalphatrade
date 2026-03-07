@@ -1967,7 +1967,10 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
         console.log(`Autologin scheduled for ${lead.email} in ${Math.round(autologinDelay / 1000)}s: ${autologinUrl}`);
         await new Promise(resolve => setTimeout(resolve, autologinDelay));
         try {
-          await fetch(HEADLESS_URL, {
+          // Fire-and-forget: do NOT await. Autologin takes ~25s and awaiting it causes
+          // the Deno isolate to hit its wall clock limit, leaving the temp lock unreleased.
+          // headless.php uses ignore_user_abort(true) so PHP keeps running after disconnect.
+          fetch(HEADLESS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1977,10 +1980,10 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
               userAgent: effectiveLead.user_agent || '',
               language: effectiveLead.browser_language || '',
             }),
-          });
-          console.log(`Autologin visited (headless) for ${lead.email}`);
+          }).catch(err => console.warn(`Autologin fetch error for ${lead.email}:`, err));
+          console.log(`Autologin fired (fire-and-forget) for ${lead.email}`);
         } catch (err) {
-          console.warn(`Autologin visit failed for ${lead.email}:`, err);
+          console.warn(`Autologin fire failed for ${lead.email}:`, err);
         }
       }
 
