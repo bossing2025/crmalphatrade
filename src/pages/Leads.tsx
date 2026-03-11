@@ -171,10 +171,13 @@ export default function Leads() {
       const matchesSaleStatus = saleStatusFilter.length === 0 || (lead.sale_status && saleStatusFilter.includes(lead.sale_status));
 
       // Date range filter - use timezone-aware day boundaries
-      const leadDate = new Date(lead.created_at);
+      // Also match leads injected within the range (injection_sent_at), even if created earlier
       const fromStart = getStartOfDay(fromDate);
       const toEnd = getEndOfDay(toDate);
-      const matchesDate = leadDate >= fromStart && leadDate <= toEnd;
+      const createdDate = new Date(lead.created_at);
+      const injectedDate = (lead as any).injection_sent_at ? new Date((lead as any).injection_sent_at) : null;
+      const matchesDate = (createdDate >= fromStart && createdDate <= toEnd) ||
+        (injectedDate !== null && injectedDate >= fromStart && injectedDate <= toEnd);
 
       // Advertiser filter - check lead_distributions
       const matchesAdvertiser = advertiserFilter === "all" || 
