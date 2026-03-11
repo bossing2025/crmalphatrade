@@ -37,6 +37,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: "advertiser", label: "Advertiser", visible: true },
   { id: "is_ftd", label: "FTD", visible: true },
   { id: "ftd_date", label: "FTD Date", visible: false },
+  { id: "injection_ftd", label: "Injection FTD", visible: true },
   { id: "affiliate", label: "Affiliate", visible: true },
   { id: "offer_name", label: "Offer Name", visible: true },
   { id: "custom1", label: "Custom 1", visible: false },

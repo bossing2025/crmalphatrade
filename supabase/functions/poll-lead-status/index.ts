@@ -51,7 +51,8 @@ interface EliteCRMLeadItem {
   email: string;
   country_code: string;
   mobile: string;
-  status: string | null;
+  status: number | null;      // numeric account status (1 = active) — NOT the CRM status
+  sales_status: string | null; // actual CRM sale status e.g. "NEW", "Busy", "No answer"
   is_ftd: number;
   ftd_date: string | null;
 }
@@ -298,7 +299,8 @@ async function pollEliteCRMLeads(
   }
 
   // Get date range - poll leads from last 30 days
-  const toDate = new Date();
+  // toDate is extended by 1 day so today's leads (inclusive) are always returned
+  const toDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const url = new URL(statusUrl);
@@ -348,7 +350,7 @@ async function pollEliteCRMLeads(
       if (!dist.external_lead_id) continue;
 
       const eliteCRMLead = eliteCRMLeadsMap.get(dist.external_lead_id);
-      
+
       // Update last_polled_at regardless of match
       await supabase
         .from('lead_distributions')
@@ -357,18 +359,18 @@ async function pollEliteCRMLeads(
 
       if (eliteCRMLead) {
         // Log raw EliteCRM data for debugging
-        console.log(`EliteCRM data for ${dist.external_lead_id}: is_ftd=${eliteCRMLead.is_ftd}, ftd_date=${eliteCRMLead.ftd_date}, status=${eliteCRMLead.status}`);
-        
+        console.log(`EliteCRM data for ${dist.external_lead_id}: is_ftd=${eliteCRMLead.is_ftd}, ftd_date=${eliteCRMLead.ftd_date}, sales_status=${eliteCRMLead.sales_status}`);
+
         const hasFtd = eliteCRMLead.is_ftd === 1;
         const leadUpdates: Record<string, unknown> = {};
 
-        // Store raw status from advertiser
+        // Store raw sales_status from advertiser (NOT the numeric account status field)
         const oldSaleStatus = (dist.leads as any).sale_status;
-        if (eliteCRMLead.status && eliteCRMLead.status !== oldSaleStatus) {
-          leadUpdates.sale_status = eliteCRMLead.status;
-          console.log(`Sale status updated for lead ${dist.lead_id}: ${eliteCRMLead.status}`);
+        if (eliteCRMLead.sales_status && eliteCRMLead.sales_status !== oldSaleStatus) {
+          leadUpdates.sale_status = eliteCRMLead.sales_status;
+          console.log(`Sale status updated for lead ${dist.lead_id}: ${eliteCRMLead.sales_status}`);
           // Log status change to history
-          await logStatusChange(supabase, dist.lead_id, null, 'sale_status', oldSaleStatus, eliteCRMLead.status);
+          await logStatusChange(supabase, dist.lead_id, null, 'sale_status', oldSaleStatus, eliteCRMLead.sales_status);
         }
 
         // Check if FTD status changed
@@ -441,7 +443,8 @@ async function pollEliteCRMInjectionLeads(
     return { updated: 0, errors: 0 };
   }
 
-  const toDate = new Date();
+  // toDate extended by 1 day so today's leads are always included
+  const toDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const url = new URL(statusUrl);
@@ -482,7 +485,7 @@ async function pollEliteCRMInjectionLeads(
         eliteCRMById.set(String(item.id), item);
       }
     }
-    
+
     // Log what we're looking for
     const lookingFor = injectionLeads.map(l => l.email).join(', ');
     console.log(`Looking for emails: ${lookingFor}`);
@@ -491,40 +494,51 @@ async function pollEliteCRMInjectionLeads(
     for (const injLead of injectionLeads) {
       // Try to match by email first
       let eliteCRMLead = eliteCRMByEmail.get(injLead.email.toLowerCase());
-      
+
       // Fallback to ID matching if email not found
       if (!eliteCRMLead && injLead.external_lead_id) {
         eliteCRMLead = eliteCRMById.get(injLead.external_lead_id);
       }
-      
-      if (eliteCRMLead) {
-        console.log(`EliteCRM match for ${injLead.email}: is_ftd=${eliteCRMLead.is_ftd}, status=${eliteCRMLead.status}, ftd_date=${eliteCRMLead.ftd_date}`);
-        
-        const hasFtd = eliteCRMLead.is_ftd === 1;
-        const leadUpdates: Record<string, unknown> = {};
 
-        // Store raw status
-        if (eliteCRMLead.status && String(eliteCRMLead.status) !== String(injLead.sale_status)) {
-          leadUpdates.sale_status = String(eliteCRMLead.status);
-          console.log(`Injection lead ${injLead.email} sale_status updated: ${eliteCRMLead.status}`);
-          // Log status change to history for injection lead
-          await logStatusChange(supabase, null, injLead.id, 'sale_status', injLead.sale_status, String(eliteCRMLead.status));
+      if (eliteCRMLead) {
+        console.log(`EliteCRM match for ${injLead.email}: is_ftd=${eliteCRMLead.is_ftd}, sales_status=${eliteCRMLead.sales_status}, ftd_date=${eliteCRMLead.ftd_date}`);
+
+        const hasFtd = eliteCRMLead.is_ftd === 1;
+        const injectionLeadUpdates: Record<string, unknown> = {};
+        const leadsTableUpdates: Record<string, unknown> = {};
+
+        // Store raw sales_status (NOT the numeric account status field)
+        if (eliteCRMLead.sales_status && eliteCRMLead.sales_status !== injLead.sale_status) {
+          injectionLeadUpdates.sale_status = eliteCRMLead.sales_status;
+          leadsTableUpdates.sale_status = eliteCRMLead.sales_status;
+          console.log(`Injection lead ${injLead.email} sale_status updated: ${eliteCRMLead.sales_status}`);
+          await logStatusChange(supabase, null, injLead.id, 'sale_status', injLead.sale_status, eliteCRMLead.sales_status);
         }
 
         // Check FTD
         if (hasFtd && !injLead.is_ftd) {
-          leadUpdates.is_ftd = true;
-          leadUpdates.ftd_date = eliteCRMLead.ftd_date || new Date().toISOString();
+          injectionLeadUpdates.is_ftd = true;
+          injectionLeadUpdates.ftd_date = eliteCRMLead.ftd_date || new Date().toISOString();
+          leadsTableUpdates.injection_ftd = true;
+          leadsTableUpdates.injection_ftd_date = eliteCRMLead.ftd_date || new Date().toISOString();
           console.log(`Injection lead ${injLead.email} FTD detected: ${eliteCRMLead.ftd_date}`);
-          // Log FTD status change to history
           await logStatusChange(supabase, null, injLead.id, 'is_ftd', 'false', 'true');
         }
 
-        if (Object.keys(leadUpdates).length > 0) {
+        if (Object.keys(injectionLeadUpdates).length > 0) {
           await supabase
             .from('injection_leads')
-            .update(leadUpdates)
+            .update(injectionLeadUpdates)
             .eq('id', injLead.id);
+
+          // Also update the corresponding leads table record if it exists (for affiliate tracking)
+          if (Object.keys(leadsTableUpdates).length > 0) {
+            await supabase
+              .from('leads')
+              .update(leadsTableUpdates)
+              .eq('email', injLead.email);
+          }
+
           updated++;
         }
       }

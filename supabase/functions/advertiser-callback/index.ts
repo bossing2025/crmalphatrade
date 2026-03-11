@@ -93,28 +93,62 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update lead status
-    const updates: Record<string, unknown> = {};
-    
-    if (statusUpdate.status) {
-      // Map advertiser status to our status enum
-      const statusMap: Record<string, string> = {
-        'new': 'new',
-        'contacted': 'contacted',
-        'qualified': 'qualified',
-        'converted': 'converted',
-        'ftd': 'converted',
-        'deposited': 'converted',
-        'lost': 'lost',
-        'rejected': 'lost',
-      };
-      updates.status = statusMap[statusUpdate.status.toLowerCase()] || statusUpdate.status;
-    }
+    // Check if this lead came from injection (by matching email + advertiser)
+    const { data: injectionLead } = await supabase
+      .from('injection_leads')
+      .select('id')
+      .eq('email', lead.email)
+      .eq('advertiser_id', advertiser.id)
+      .eq('status', 'sent')
+      .maybeSingle();
 
-    if (statusUpdate.is_ftd !== undefined) {
-      updates.is_ftd = statusUpdate.is_ftd;
-      if (statusUpdate.is_ftd && !lead.ftd_date) {
-        updates.ftd_date = statusUpdate.ftd_date || new Date().toISOString();
+    const updates: Record<string, unknown> = {};
+
+    if (injectionLead) {
+      // --- INJECTION LEAD: only update sale_status and injection_ftd, never touch status/is_ftd ---
+      const injectionLeadUpdates: Record<string, unknown> = {};
+
+      if (statusUpdate.status) {
+        updates.sale_status = statusUpdate.status;
+        injectionLeadUpdates.sale_status = statusUpdate.status;
+      }
+
+      if (statusUpdate.is_ftd) {
+        updates.injection_ftd = true;
+        updates.injection_ftd_date = statusUpdate.ftd_date || new Date().toISOString();
+        injectionLeadUpdates.is_ftd = true;
+        injectionLeadUpdates.ftd_date = statusUpdate.ftd_date || new Date().toISOString();
+      }
+
+      // Update injection_leads record
+      if (Object.keys(injectionLeadUpdates).length > 0) {
+        await supabase
+          .from('injection_leads')
+          .update(injectionLeadUpdates)
+          .eq('id', injectionLead.id);
+        console.log(`Updated injection_lead ${injectionLead.id} with:`, injectionLeadUpdates);
+      }
+    } else {
+      // --- API LEAD: existing behavior — update status and is_ftd ---
+      if (statusUpdate.status) {
+        const statusMap: Record<string, string> = {
+          'new': 'new',
+          'contacted': 'contacted',
+          'qualified': 'qualified',
+          'converted': 'converted',
+          'ftd': 'converted',
+          'deposited': 'converted',
+          'lost': 'lost',
+          'rejected': 'lost',
+        };
+        updates.status = statusMap[statusUpdate.status.toLowerCase()] || statusUpdate.status;
+      }
+
+      if (statusUpdate.is_ftd !== undefined) {
+        updates.is_ftd = statusUpdate.is_ftd;
+        if (statusUpdate.is_ftd && !lead.ftd_date) {
+          updates.ftd_date = statusUpdate.ftd_date || new Date().toISOString();
+        }
       }
     }
 

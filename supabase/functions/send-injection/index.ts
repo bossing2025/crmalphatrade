@@ -31,6 +31,7 @@ interface Injection {
 interface InjectionLead {
   id: string;
   injection_id: string;
+  pool_lead_id: string | null;
   firstname: string;
   lastname: string;
   email: string;
@@ -1959,6 +1960,42 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
         .from('injections')
         .update({ sent_count: injection.sent_count + 1 })
         .eq('id', injection.id);
+
+      // If this pool lead has a source affiliate, create a record in the main leads table
+      // so the affiliate can track it and broker callbacks (sale_status, injection_ftd) reflect there.
+      if (lead.pool_lead_id) {
+        try {
+          const { data: poolLead } = await supabase
+            .from('lead_pool_leads')
+            .select('source_affiliate_id')
+            .eq('id', lead.pool_lead_id)
+            .maybeSingle();
+
+          if (poolLead?.source_affiliate_id) {
+            await supabase
+              .from('leads')
+              .upsert({
+                firstname: lead.firstname,
+                lastname: lead.lastname,
+                email: lead.email,
+                mobile: lead.mobile,
+                country_code: lead.country_code,
+                country: lead.country,
+                ip_address: effectiveLead.ip_address,
+                offer_name: lead.offer_name,
+                custom1: lead.custom1,
+                custom2: lead.custom2,
+                custom3: lead.custom3,
+                comment: lead.comment,
+                affiliate_id: poolLead.source_affiliate_id,
+                status: 'new',
+              }, { onConflict: 'email', ignoreDuplicates: true });
+            console.log(`Created leads record for affiliate-sourced injection lead: ${lead.email}`);
+          }
+        } catch (err) {
+          console.warn(`Failed to create leads record for injection lead ${lead.email}:`, err);
+        }
+      }
 
       // Auto-visit autologin URL using same simulated IP/UA as registration
       // so broker sees consistent IP for both signup and first login

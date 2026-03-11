@@ -53,10 +53,12 @@ export function useLeads() {
         `)
         .neq('status', 'rejected')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
+    refetchInterval: 15000, // auto-refresh every 15s (Realtime WebSocket not available via Apache)
+    refetchIntervalInBackground: true, // keep polling even when window is not focused
   });
 }
 

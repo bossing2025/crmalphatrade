@@ -275,14 +275,33 @@ export function useAddLeadsToLeadPool() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      poolId, 
-      leads 
-    }: { 
-      poolId: string; 
-      leads: Omit<LeadPoolLead, 'id' | 'pool_id' | 'created_at'>[] 
+    mutationFn: async ({
+      poolId,
+      leads
+    }: {
+      poolId: string;
+      leads: Omit<LeadPoolLead, 'id' | 'pool_id' | 'created_at'>[]
     }) => {
-      const leadsToInsert = leads.map(lead => ({
+      // Fetch emails already in this pool to prevent duplicates
+      const { data: existing } = await supabase
+        .from('lead_pool_leads')
+        .select('email')
+        .eq('pool_id', poolId);
+
+      const existingEmails = new Set(
+        (existing || []).map((r: { email: string }) => r.email.toLowerCase())
+      );
+
+      const newLeads = leads.filter(
+        lead => !existingEmails.has(lead.email.toLowerCase())
+      );
+      const skipped = leads.length - newLeads.length;
+
+      if (newLeads.length === 0) {
+        return { inserted: 0, skipped };
+      }
+
+      const leadsToInsert = newLeads.map(lead => ({
         ...lead,
         pool_id: poolId,
       }));
@@ -293,13 +312,18 @@ export function useAddLeadsToLeadPool() {
         .select();
 
       if (error) throw error;
-      return data;
+      return { inserted: data?.length ?? newLeads.length, skipped };
     },
-    onSuccess: (_, { poolId }) => {
+    onSuccess: (result, { poolId }) => {
       queryClient.invalidateQueries({ queryKey: ['lead-pool', poolId] });
       queryClient.invalidateQueries({ queryKey: ['lead-pool-leads', poolId] });
       queryClient.invalidateQueries({ queryKey: ['lead-pools'] });
-      toast.success('Leads added to pool');
+      const { inserted, skipped } = result as { inserted: number; skipped: number };
+      if (skipped > 0) {
+        toast.success(`${inserted} leads added, ${skipped} duplicate(s) skipped`);
+      } else {
+        toast.success(`${inserted} leads added to pool`);
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);

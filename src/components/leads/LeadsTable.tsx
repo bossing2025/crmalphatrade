@@ -171,6 +171,10 @@ export function LeadsTable({
         return formatDate(lead.created_at);
       case "ftd_date":
         return lead.ftd_date ? formatDate(lead.ftd_date) : "-";
+      case "injection_ftd":
+        return (lead as any).injection_ftd ? (
+          <Badge className="bg-purple-100 text-purple-800">FTD</Badge>
+        ) : <span className="text-muted-foreground">-</span>;
       default:
         return "-";
     }
