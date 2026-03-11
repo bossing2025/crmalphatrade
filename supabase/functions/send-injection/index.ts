@@ -1885,6 +1885,7 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
       timezone: simulatedLead.timezone,
       city: simulatedLead.city,
       isp_name: simulatedLead.isp_name,
+      offer_name: simulatedLead.offer_name,
     })
     .eq('id', lead.id);
 
@@ -1990,7 +1991,13 @@ async function processNextLead(supabase: any, injection: Injection, advertiser: 
                 affiliate_id: poolLead.source_affiliate_id,
                 status: 'new',
               }, { onConflict: 'email', ignoreDuplicates: true });
-            console.log(`Created leads record for affiliate-sourced injection lead: ${lead.email}`);
+            // Stamp injection_sent_at on both new and existing leads records
+            // so the Leads page "Today" filter includes leads injected today
+            await supabase
+              .from('leads')
+              .update({ injection_sent_at: new Date().toISOString() })
+              .eq('email', lead.email);
+            console.log(`Created/updated leads record for affiliate-sourced injection lead: ${lead.email}`);
           }
         } catch (err) {
           console.warn(`Failed to create leads record for injection lead ${lead.email}:`, err);

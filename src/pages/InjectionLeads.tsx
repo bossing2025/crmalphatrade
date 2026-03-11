@@ -114,17 +114,14 @@ export default function InjectionLeads() {
         .from('injection_leads')
         .select(`
           *,
-          injection:injections(id, name, offer_name),
+          injection:injections(id, name),
           advertiser:advertisers(id, name)
         `)
         .eq('status', 'sent')
         .order('sent_at', { ascending: false });
 
       if (error) throw error;
-      return data.map(lead => ({
-        ...lead,
-        offer_name: (lead.injection as any)?.offer_name || lead.offer_name,
-      }));
+      return data;
     },
   });
 
