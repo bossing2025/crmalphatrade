@@ -311,6 +311,15 @@ export function useCopyLeadsToInjection() {
       };
       limit?: number;
     }): Promise<{ count: number; total: number; duplicateCount: number }> => {
+      // Fetch injection's offer_name override
+      const { data: injectionData, error: injectionFetchError } = await supabase
+        .from('injections')
+        .select('offer_name')
+        .eq('id', injectionId)
+        .single();
+      if (injectionFetchError) throw injectionFetchError;
+      const injectionOfferName = injectionData?.offer_name || null;
+
       // Call the filter-pool-leads function to get eligible leads (excluding duplicates + already in injection)
       const { data: filterResult, error: filterError } = await supabase.functions.invoke('filter-pool-leads', {
         body: {
@@ -366,7 +375,7 @@ export function useCopyLeadsToInjection() {
         country_code: lead.country_code,
         country: lead.country,
         ip_address: lead.ip_address,
-        offer_name: lead.offer_name,
+        offer_name: injectionOfferName || lead.offer_name,
         custom1: lead.custom1,
         custom2: lead.custom2,
         custom3: lead.custom3,
