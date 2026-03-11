@@ -229,7 +229,14 @@ export default function Leads() {
           aVal = (a as any).affiliates?.name || "";
           bVal = (b as any).affiliates?.name || "";
           break;
-        case "created_at":
+        case "created_at": {
+          // Sort by the most recent activity: injection_sent_at if present, otherwise created_at
+          const aInj = (a as any).injection_sent_at ? new Date((a as any).injection_sent_at).getTime() : 0;
+          const bInj = (b as any).injection_sent_at ? new Date((b as any).injection_sent_at).getTime() : 0;
+          aVal = Math.max(new Date(a.created_at).getTime(), aInj);
+          bVal = Math.max(new Date(b.created_at).getTime(), bInj);
+          return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+        }
         case "ftd_date":
           aVal = a[sortConfig.column] ? new Date(a[sortConfig.column]).getTime() : 0;
           bVal = b[sortConfig.column] ? new Date(b[sortConfig.column]).getTime() : 0;

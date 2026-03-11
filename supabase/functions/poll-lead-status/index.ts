@@ -629,6 +629,12 @@ async function pollEgoliInjectionLeadsPerEmail(
           .from('injection_leads')
           .update(leadUpdates)
           .eq('id', injLead.id);
+        const leadsSync: Record<string, unknown> = {};
+        if (leadUpdates.sale_status) leadsSync.sale_status = leadUpdates.sale_status;
+        if (leadUpdates.is_ftd) { leadsSync.injection_ftd = true; leadsSync.injection_ftd_date = leadUpdates.ftd_date; }
+        if (Object.keys(leadsSync).length > 0) {
+          await supabase.from('leads').update(leadsSync).eq('email', injLead.email);
+        }
         updated++;
       }
     } catch (error) {
@@ -762,6 +768,12 @@ async function pollEnigmaInjectionLeads(
             .from('injection_leads')
             .update(leadUpdates)
             .eq('id', injLead.id);
+          const leadsSync: Record<string, unknown> = {};
+          if (leadUpdates.sale_status) leadsSync.sale_status = leadUpdates.sale_status;
+          if (leadUpdates.is_ftd) { leadsSync.injection_ftd = true; leadsSync.injection_ftd_date = leadUpdates.ftd_date; }
+          if (Object.keys(leadsSync).length > 0) {
+            await supabase.from('leads').update(leadsSync).eq('email', injLead.email);
+          }
           updated++;
         }
       }
@@ -1013,6 +1025,12 @@ async function pollGSIInjectionLeads(
             .from('injection_leads')
             .update(leadUpdates)
             .eq('id', injLead.id);
+          const leadsSync: Record<string, unknown> = {};
+          if (leadUpdates.sale_status) leadsSync.sale_status = leadUpdates.sale_status;
+          if (leadUpdates.is_ftd) { leadsSync.injection_ftd = true; leadsSync.injection_ftd_date = leadUpdates.ftd_date; }
+          if (Object.keys(leadsSync).length > 0) {
+            await supabase.from('leads').update(leadsSync).eq('email', injLead.email);
+          }
           updated++;
         }
       }
@@ -1349,6 +1367,12 @@ async function pollTrackBoxInjectionLeads(
             .from('injection_leads')
             .update(leadUpdates)
             .eq('id', injLead.id);
+          const leadsSync: Record<string, unknown> = {};
+          if (leadUpdates.sale_status) leadsSync.sale_status = leadUpdates.sale_status;
+          if (leadUpdates.is_ftd) { leadsSync.injection_ftd = true; leadsSync.injection_ftd_date = leadUpdates.ftd_date; }
+          if (Object.keys(leadsSync).length > 0) {
+            await supabase.from('leads').update(leadsSync).eq('email', injLead.email);
+          }
           updated++;
         }
       }
@@ -1622,6 +1646,12 @@ async function pollElnopyInjectionLeads(
             .from('injection_leads')
             .update(leadUpdates)
             .eq('id', injLead.id);
+          const leadsSync: Record<string, unknown> = {};
+          if (leadUpdates.sale_status) leadsSync.sale_status = leadUpdates.sale_status;
+          if (leadUpdates.is_ftd) { leadsSync.injection_ftd = true; leadsSync.injection_ftd_date = leadUpdates.ftd_date; }
+          if (Object.keys(leadsSync).length > 0) {
+            await supabase.from('leads').update(leadsSync).eq('email', injLead.email);
+          }
           updated++;
         }
       }
