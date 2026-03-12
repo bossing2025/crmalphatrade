@@ -348,6 +348,33 @@ const PHONE_PREFIX_MAP: Record<string, string[]> = {
   AR: ['+54', '54'],
 };
 
+// ============ COUNTRY CODE TO COUNTRY NAME MAPPING ============
+// Used to auto-populate country name when lead.country is empty but country_code is set
+const COUNTRY_CODE_TO_NAME: Record<string, string> = {
+  AF: 'Afghanistan', AL: 'Albania', DZ: 'Algeria', AR: 'Argentina', AU: 'Australia',
+  AT: 'Austria', AZ: 'Azerbaijan', BH: 'Bahrain', BD: 'Bangladesh', BY: 'Belarus',
+  BE: 'Belgium', BR: 'Brazil', BG: 'Bulgaria', KH: 'Cambodia', CA: 'Canada',
+  CL: 'Chile', CN: 'China', CO: 'Colombia', HR: 'Croatia', CZ: 'Czech Republic',
+  DK: 'Denmark', EG: 'Egypt', EE: 'Estonia', FI: 'Finland', FR: 'France',
+  GE: 'Georgia', DE: 'Germany', GH: 'Ghana', GR: 'Greece', GT: 'Guatemala',
+  HK: 'Hong Kong', HU: 'Hungary', IN: 'India', ID: 'Indonesia', IE: 'Ireland',
+  IL: 'Israel', IT: 'Italy', JP: 'Japan', JO: 'Jordan', KZ: 'Kazakhstan',
+  KE: 'Kenya', KW: 'Kuwait', LV: 'Latvia', LB: 'Lebanon', LT: 'Lithuania',
+  LU: 'Luxembourg', MY: 'Malaysia', MX: 'Mexico', MA: 'Morocco', NL: 'Netherlands',
+  NZ: 'New Zealand', NG: 'Nigeria', NO: 'Norway', OM: 'Oman', PK: 'Pakistan',
+  PE: 'Peru', PH: 'Philippines', PL: 'Poland', PT: 'Portugal', QA: 'Qatar',
+  RO: 'Romania', RU: 'Russia', SA: 'Saudi Arabia', SG: 'Singapore', ZA: 'South Africa',
+  KR: 'South Korea', ES: 'Spain', LK: 'Sri Lanka', SE: 'Sweden', CH: 'Switzerland',
+  TW: 'Taiwan', TH: 'Thailand', TN: 'Tunisia', TR: 'Turkey', UA: 'Ukraine',
+  AE: 'United Arab Emirates', GB: 'United Kingdom', US: 'United States',
+  UY: 'Uruguay', UZ: 'Uzbekistan', VN: 'Vietnam',
+};
+
+function getCountryName(countryCode: string): string {
+  if (!countryCode) return '';
+  return COUNTRY_CODE_TO_NAME[countryCode.toUpperCase()] || countryCode;
+}
+
 // ============ CANADIAN AREA CODE TO CITY MAPPING ============
 // Maps Canadian phone area codes to cities for accurate IP geo-matching
 const CA_AREA_CODE_TO_CITY: Record<string, string> = {
@@ -1373,7 +1400,7 @@ const advertiserAdapters: Record<string, (lead: InjectionLead, advertiser: Adver
       mobile: lead.mobile,
       country_code: lead.country_code,
       ip_address: lead.ip_address || generateGeoMatchedIP(lead.country_code),
-      country: lead.country || '',
+      country: lead.country || getCountryName(lead.country_code),
     };
 
     if (lead.offer_name) payload.offerName = lead.offer_name;
